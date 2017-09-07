@@ -28,11 +28,11 @@ import edu.caltech.lncrna.bio.io.BamParser;
 import edu.caltech.lncrna.bio.io.BedParser;
 
 /**
-This program was originally written to assist Joanna with designing RAP probes
-that target transposable elements. In typical probe design, we discard probes
-that align to multiple locations in the genome. Transposons, though, have many
-copies scattered throughout the genome, and we need to know the nature (type of
-element, whether in a gene, etc) of every location that each probe aligns to.
+ * This program was originally written to assist Joanna with designing RAP probes
+ * that target transposable elements. In typical probe design, we discard probes
+ * that align to multiple locations in the genome. Transposons, though, have many
+ * copies scattered throughout the genome, and we need to know the nature (type of
+ * element, whether in a gene, etc) of every location that each probe aligns to.
  */
 public class TransposonProbeAnalyzer {
 
