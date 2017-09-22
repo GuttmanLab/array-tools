@@ -18,14 +18,15 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
-import edu.caltech.lncrna.bio.alignment.Aligned;
 import edu.caltech.lncrna.bio.alignment.Alignment;
+import edu.caltech.lncrna.bio.alignment.SingleReadAlignment;
 import edu.caltech.lncrna.bio.annotation.Annotated;
 import edu.caltech.lncrna.bio.annotation.Annotation;
 import edu.caltech.lncrna.bio.annotation.BedFileRecord;
 import edu.caltech.lncrna.bio.datastructures.GenomeTree;
-import edu.caltech.lncrna.bio.io.BamParser;
 import edu.caltech.lncrna.bio.io.BedParser;
+import edu.caltech.lncrna.bio.io.SingleReadBamParser;
+import edu.caltech.lncrna.bio.sequence.Sequences;
 
 /**
  * This program was originally written to assist Joanna with designing RAP probes
@@ -45,7 +46,7 @@ public class TransposonProbeAnalyzer {
     private final GenomeTree<BedFileRecord> repeats;
     private final Map<String, Probe> probes;
     
-    private static final String VERSION = "1.0.0";
+    private static final String VERSION = "1.1.0";
     private static final Logger LOGGER = Logger.getLogger("TransposonProbeAnalyzer");
     
     private static final String HELP_TEXT = "java -jar "
@@ -193,8 +194,7 @@ public class TransposonProbeAnalyzer {
     
     public void loadProbes() {
         LOGGER.info("Loading probes.");
-        try (BamParser<? extends Aligned<? extends Alignment>> bp =
-                BamParser.newInstance(probesPath)) {
+        try (SingleReadBamParser bp = new SingleReadBamParser(probesPath)) {
             bp.getAlignmentStream()
                 .peek(x -> LOGGER.finest("Reading probe " + x.toFormattedBedString(4)))
                 .forEach(x -> addRead(x));
@@ -202,7 +202,7 @@ public class TransposonProbeAnalyzer {
         LOGGER.info("Loaded " + probes.size() + " probes.");
     }
     
-    public void addRead(Alignment a) {
+    public void addRead(SingleReadAlignment a) {
         LOGGER.log(Level.FINEST, "Adding probe " + a.getName());
         String name = a.getName();
         Probe probe = probes.getOrDefault(name, new Probe());
@@ -212,7 +212,7 @@ public class TransposonProbeAnalyzer {
     
     public void print() {
         System.out.println("NAME\tREPEATS\tGENES_NO_REPEATS\t" + 
-                "GENES_EXONS_WITH_REPEATS\tGENES_INTRONS_WITH_REPEATS");
+                "GENES_EXONS_WITH_REPEATS\tGENES_INTRONS_WITH_REPEATS\tSEQUENCE");
         for (Probe probe : probes.values()) {
             System.out.println(probe.toString());
         }
@@ -224,6 +224,7 @@ public class TransposonProbeAnalyzer {
     public class Probe {
         
         private String name;
+        private String seq;
         
         /**
          * A list of positions that this probe aligns to.
@@ -234,8 +235,27 @@ public class TransposonProbeAnalyzer {
             positions = new ArrayList<>();
         }
         
-        public void addPosition(Alignment a) {
-            name = a.getName();
+        public void addPosition(SingleReadAlignment a) {
+            if (name == null) {
+                name = a.getName();
+            } else {
+                if (!name.equals(a.getName())) {
+                    throw new IllegalArgumentException("Read name does not "
+                            + "match probe name: " + name + " != "
+                            + a.getName());
+                }
+            }
+            
+            if (seq == null) {
+                seq = a.getBases();
+            } else {
+                if (!(seq.equals(a.getBases()) ||
+                      seq.equals(Sequences.reverseComplement(a.getBases())))) {
+                    throw new IllegalArgumentException("Read sequence does "
+                            + "not match probe sequence: " + seq + " != "
+                            + a.getBases());
+                }
+            }
             positions.add(new Position(a));
         }
         
@@ -315,6 +335,7 @@ public class TransposonProbeAnalyzer {
                 }
             }
             
+            sb.append("\t" + seq);
             return sb.toString();
         }
         
